@@ -159,5 +159,39 @@ ip flow monitor ENCORMONITORout output
 
 
 
+NEXUS!
+BOTH:
+conf t
+feature bgp
+feature ospf
+feature interface-vlan
+feature nv overlay
+feature vn-segment-vlan-based
+system jumbomtu 9216
+checkpoint vxlan1
+
+
+
+
+
+conf t
+hostname R2-JP
+int g0/0
+no shut
+ip add 60.0.0.2 255.0.0.0
+
+
+
+
+conf t
+hostname R4-JP
+int g0/0
+no shut
+ip add 60.0.0.4 255.0.0.0
+
+
+
+
+
 
 
