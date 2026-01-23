@@ -1,0 +1,163 @@
+task1: Linux endpoint config:
+
+sudo su
+ifconfig eth0 192.168.103.21 netmask 255.255.255.0 up
+
+
+sudo su
+ifconfig eth0 192.168.103.22 netmask 255.255.255.0 up
+
+
+1st
+
+ip sla schedule 1 life forever start-time now
+
+2nd
+config t
+
+!indentify the traffic to filter
+ip access-list extended 100
+   permit icmp any any
+class-map PINGSTOP
+   match access-group 100
+policy-map PINGSTOPPOL
+   class PINGSTOP
+    police 8000 conform-action transmit exceed-action drop
+exit
+control-plane
+  service-policy input PINGSTOPPOL
+end
+show  policy-map control-plane
+
+
+
+EXAMPLE # 2
+
+use COPP to allow ssh but deny http and telnet:
+config t
+ip access-list extended CPNOHTTPS
+ permit tcp any any eq 80
+ permit tcp any any eq 443
+ permit tcp any any eq 23
+ deny tcp any any eq 22
+class-map NOHTTP
+ match access-group name CPNOHTTPS
+policy-map PONOHTTPS
+ class NOHTTP
+ police 8000 conform-action drop exceed-action drop
+exit
+control-plane
+ service-policy input PONOHTTPS
+end
+
+
+
+DAY 5 P2
+
+config t
+no access-list 8
+access-list 8 permit any
+Int Gi 3
+ ip nat Inside
+Int gi 1
+ ip nat Outside
+IP Nat inside source static tcp 192.168.103.21 80 208.8.8.69 80
+IP Nat inside source static tcp 192.168.103.21 443 208.8.8.69 443
+IP Nat inside source static tcp 192.168.103.22 80 208.8.8.69 8080
+IP Nat inside source static tcp 192.168.103.22 443 208.8.8.69 8443
+IP Nat inside source static tcp 192.168.103.21 22 208.8.8.69 8022
+IP nat inside source list 8 int gi 1 Overload
+end
+show ip nat translation
+
+
+
+
+
+
+conf t
+logging on
+logging host 208.8.8.133 transport udp port 9001
+logging trap informational
+
+
+
+conf t
+archive
+log config
+logging enable
+notify syslog
+-------------------
+config t
+access-list 100 deny ip any host 208.8.8.12 log
+access-list 100 permit ip any any
+interface GigabitEthernet1
+ip access-group 100 in
+
+
+
+
+
+
+http://208.8.8.133:5601
+
+
+
+3rd
+IMPLEMENTING PORT MONITORING:
+
+coreBABA:
+conf t
+no monitor session 1
+monitor session 1 source interface fa0/5, fa0/7 both
+monitor session 1 destination interface fa0/1,fa0/9
+end
+
+
+CONFIGURE NETFLOW ANALYZER:
+Step 1: Config and verify netflow:
+
+@R1
+conf t
+flow record ENCOROUT
+ description OUTBOUND
+ match ipv4 destination address
+ match transport destination-port
+ collect counter bytes
+ collect counter packets
+end
+
+Step 2: Create Flow Exporter to NetflowCollector:
+@R1
+conf t
+flow exporter ENCOREXPORT
+ destination 192.168.102.1
+ export-protocol netflow-v9
+ transport udp 9999
+end
+
+Step 3: Create flow monitor and association:
+config t
+flow monitor ENCORMONITORin
+ record netflow ipv4 original-input
+ cache timeout active 30
+ exporter ENCOREXPORT
+exit
+flow monitor ENCORMONITORout
+ record ENCOROUT
+ cache timeout active 30
+ exporter ENCOREXPORT
+end
+
+Step 4: Interface Flow Caching:
+@R1:
+conf t
+int gi 2
+ip flow monitor ENCORMONITORin input
+ip flow monitor ENCORMONITORout output
+
+
+
+
+
+
